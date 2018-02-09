@@ -811,7 +811,7 @@ simple.risk %>%
 ```
 
 
-# Figure 4: Sequencing of tests and dealing with missing data
+# Figure 3: Sequencing of tests and dealing with missing data
 
 ```{r}
 # Grid for 128 possible combinations of presence/absence for 7 diagnostic tests
@@ -1011,6 +1011,7 @@ callsForCSVexport[is.na(callsForCSVexport)] <- 0
 write_csv(callsForCSVexport, "./Output/CallTypesAndErrors_MissingTestCombos.csv")
 
 ```
+
 
 
 ```{r}
@@ -1375,7 +1376,7 @@ write_csv(four_sequence, "./Output/AllSequencesWide.csv")
 write_csv(four_long, "./Output/AllSequencesLong.csv")
 ```
 
-## Figure 4 Charts: Optimal sequencing of tests
+## Figure 3 Charts: Optimal sequencing of tests
 ```{r}
 c1 <- ggplot(four_long, aes(x=TestInSeq, y=TotalAcc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +

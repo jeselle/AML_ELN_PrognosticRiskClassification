@@ -1,0 +1,300 @@
+---
+title: "UpstreamDataCleaning"
+output: html_document
+---
+```{r}
+library(stringr)
+library(tidyverse)
+```
+
+```{r}
+rawSpecimenGroup <- read.csv("../BeatAML_reports/specimen_group_dump_20170306.csv")
+rawLabResults <- read.csv("../BeatAML_reports/lab_results_dump_20170306.csv", na.strings = c("Not Available", "Not available", "not available", "N/A"))
+rawDiagnosis <- read.csv("../BeatAML_reports/diagnosis_dump_20170306.csv")
+```
+
+Filter down to only Initial Acute Leukemia Diagnoses AND BeatAML Datalock
+
+```{r}
+initialDiagnosisSample <- rawSpecimenGroup %>% filter(Specimen.Groups..Specimen.Group == "Initial Acute Leukemia Diagnosis")
+datalock1AML <- rawSpecimenGroup %>% 
+  filter(Specimen.Groups..Specimen.Group == "DataLock1_TumorSample_NoMatchingNormal" |
+           Specimen.Groups..Specimen.Group == "DataLock1_TumorSample_WithMatchingNormal")
+
+dl1AMLlist <- initialDiagnosisSample[initialDiagnosisSample$Specimen..Lab.ID %in% datalock1AML$Specimen..Lab.ID,]
+dl1AMLlist <- dl1AMLlist %>% filter(Specimen..Lab.ID != "15-00821") # Removes a bad sample, listed as both initial diagnosis and post-chemo, conflicting karyotypes
+#nrow(dl1AMLlist)
+```
+
+Filter to lab results of only selected samples
+```{r}
+selectedLabs <- rawLabResults[rawLabResults$Specimen..Lab.ID %in% dl1AMLlist$Specimen..Lab.ID,]
+```
+
+Extract Relevant measures
+```{r}
+## Karyotype
+
+selected_k <- selectedLabs %>%
+  filter(Labs..Lab.Type == "Karyotype") %>% 
+  select(Specimen..Lab.ID, Labs..Result) %>% 
+  rename(CYTOGENETICS = Labs..Result)
+  
+
+dl1AMLlist_k <- left_join(dl1AMLlist, selected_k, by = "Specimen..Lab.ID")
+
+
+## FLT3-ITD
+flt.results <- selectedLabs %>% 
+  filter(str_detect(Labs..Lab.Type, "FLT3-ITD")) %>% 
+  select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
+  arrange(Specimen..Lab.ID)
+
+flt.results$Specimen..Lab.ID <- factor(flt.results$Specimen..Lab.ID)
+  
+flt.wide <- flt.results %>% 
+    unique() %>% 
+    spread(Labs..Lab.Type, Labs..Result) %>% 
+    mutate_each(funs(as.character(.)), 2:4)
+
+
+flt.clean <- flt.wide %>% 
+  mutate(priorityFLT3 = 
+       ifelse(!is.na(flt.wide$`FLT3-ITD (internal)`), flt.wide$`FLT3-ITD (internal)`,
+              ifelse(!is.na(flt.wide$`FLT3-ITD (GeneTrails)`), flt.wide$`FLT3-ITD (GeneTrails)`,
+                     ifelse(!is.na(flt.wide$`FLT3-ITD`), flt.wide$`FLT3-ITD`, NA)))
+       ) %>% 
+  mutate(FLT3_ITD = 
+           ifelse(priorityFLT3 == "Positive", TRUE, 
+                  ifelse(priorityFLT3 == "Negative", FALSE, NA))) %>% 
+  select(Specimen..Lab.ID, FLT3_ITD)
+
+dl1AMLlist_kf <- left_join(dl1AMLlist_k, flt.clean, by = "Specimen..Lab.ID")
+
+
+## NPM1
+
+npm.results <- selectedLabs %>% 
+  filter(str_detect(Labs..Lab.Type, "NPM")) %>% 
+  select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
+  arrange(Specimen..Lab.ID)
+
+npm.results$Specimen..Lab.ID <- factor(npm.results$Specimen..Lab.ID)
+  
+npm.wide <- npm.results %>% 
+    unique() %>% 
+    spread(Labs..Lab.Type, Labs..Result) %>% 
+    mutate_each(funs(as.character(.)), 2:4)
+
+npm.clean <- npm.wide %>% 
+  mutate(priorityNPM1 = 
+       ifelse(!is.na(npm.wide$`NPM1 (internal)`), npm.wide$`NPM1 (internal)`,
+              ifelse(!is.na(npm.wide$`NPM (GeneTrails)`), npm.wide$`NPM (GeneTrails)`,
+                     ifelse(!is.na(npm.wide$NPM), npm.wide$NPM, NA)))
+       ) %>% 
+  mutate(NPM1_MUTATED = 
+           ifelse(priorityNPM1 == "Positive", TRUE, 
+                  ifelse(priorityNPM1 == "Negative", FALSE, NA))) %>% 
+  select(Specimen..Lab.ID, NPM1_MUTATED)
+
+dl1AMLlist_kfn <- left_join(dl1AMLlist_kf, npm.clean, by = "Specimen..Lab.ID")
+
+## CEBPA
+
+cebpa.results <- selectedLabs %>% 
+  filter(str_detect(Labs..Lab.Type, "CEBPA")) %>% 
+  select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
+  arrange(Specimen..Lab.ID)
+
+cebpa.results$Specimen..Lab.ID <- factor(cebpa.results$Specimen..Lab.ID)
+  
+cebpa.wide <- cebpa.results %>% 
+    unique() %>% 
+    spread(Labs..Lab.Type, Labs..Result) %>% 
+    mutate_each(funs(as.character(.)), 2:3)
+
+cebpa.clean <- cebpa.wide %>% 
+  mutate(priorityCEBPA = 
+       ifelse(!is.na(cebpa.wide$`CEBPA (GeneTrails)`), cebpa.wide$`CEBPA (GeneTrails)`,
+              ifelse(!is.na(cebpa.wide$CEBPA), cebpa.wide$CEBPA, NA))
+       ) %>% 
+  mutate(CEBPA_MUTATED = 
+           ifelse(priorityCEBPA == "Positive", TRUE, 
+                  ifelse(priorityCEBPA == "Negative", FALSE, NA))) %>% 
+  select(Specimen..Lab.ID, CEBPA_MUTATED)
+
+dl1AMLlist_kfnc <- left_join(dl1AMLlist_kfn, cebpa.clean, by = "Specimen..Lab.ID")
+
+## TP53
+
+TP53.results <- selectedLabs %>% 
+  filter(str_detect(Labs..Lab.Type, "TP53")) %>%
+  select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
+  arrange(Specimen..Lab.ID)
+
+TP53.results$Specimen..Lab.ID <- factor(TP53.results$Specimen..Lab.ID)
+
+TP53.wide <- TP53.results %>% 
+    unique() %>% 
+    spread(Labs..Lab.Type, Labs..Result) %>% 
+    mutate_each(funs(as.character(.)), 2:3)
+
+TP53.clean <- TP53.wide %>% 
+  mutate(priorityTP53 = 
+       ifelse(!is.na(TP53.wide$`TP53 (GeneTrails)`), TP53.wide$`TP53 (GeneTrails)`,
+              ifelse(!is.na(TP53.wide$TP53), TP53.wide$TP53, NA))
+       ) %>% 
+  mutate(TP53 = 
+           ifelse(priorityTP53 == "Positive", TRUE, 
+                  ifelse(priorityTP53 == "Negative", FALSE, NA))) %>% 
+  select(Specimen..Lab.ID, TP53)
+
+## RUNX1
+
+RUNX1.results <- selectedLabs %>% 
+  filter(str_detect(Labs..Lab.Type, "RUNX1")) %>% 
+  select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
+  arrange(Specimen..Lab.ID)
+
+RUNX1.results$Specimen..Lab.ID <- factor(RUNX1.results$Specimen..Lab.ID)
+
+RUNX1.wide <- RUNX1.results %>% 
+  unique() %>% 
+  spread(Labs..Lab.Type, Labs..Result) %>% 
+  mutate_each(funs(as.character(.)), 2:3)
+
+RUNX1.clean <- RUNX1.wide %>% 
+  mutate(priorityRUNX1 =
+           ifelse(!is.na(RUNX1.wide$`RUNX1 (GeneTrails)`), RUNX1.wide$`RUNX1 (GeneTrails)`,
+              ifelse(!is.na(RUNX1.wide$RUNX1), RUNX1.wide$RUNX1, NA))
+       ) %>% 
+  mutate(RUNX1 = 
+           ifelse(priorityRUNX1 == "Positive", TRUE, 
+                  ifelse(priorityRUNX1 == "Negative", FALSE, NA))) %>% 
+  select(Specimen..Lab.ID, RUNX1)
+
+## ASXL1
+
+ASXL1.results <- selectedLabs %>% 
+  filter(str_detect(Labs..Lab.Type, "ASXL1")) %>% 
+  select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
+  arrange(Specimen..Lab.ID)
+
+ASXL1.results$Specimen..Lab.ID <- factor(ASXL1.results$Specimen..Lab.ID)
+
+ASXL1.wide <- ASXL1.results %>% 
+  unique() %>% 
+  spread(Labs..Lab.Type, Labs..Result) %>% 
+  mutate_each(funs(as.character(.)), 2:3)
+
+ASXL1.clean <- ASXL1.wide %>% 
+  mutate(priorityASXL1 =
+           ifelse(!is.na(ASXL1.wide$`ASXL1 (GeneTrails)`), ASXL1.wide$`ASXL1 (GeneTrails)`,
+              ifelse(!is.na(ASXL1.wide$ASXL1), ASXL1.wide$ASXL1, NA))
+       ) %>% 
+  mutate(ASXL1 = 
+           ifelse(priorityASXL1 == "Positive", TRUE, 
+                  ifelse(priorityASXL1 == "Negative", FALSE, NA))) %>% 
+  select(Specimen..Lab.ID, ASXL1)
+
+dl1AMLlist_kfncpra <- left_join(dl1AMLlist_kfnc, TP53.clean, by = "Specimen..Lab.ID") %>% 
+  left_join(., RUNX1.clean, by = "Specimen..Lab.ID") %>% 
+  left_join(., ASXL1.clean, by = "Specimen..Lab.ID")
+```
+
+Find Genetrails = negative fields, this means genetrails was run and no mutations found, so it should trump NA fields with "Negative"
+
+```{r}
+#Way too many GT = positive values... going to have to make sure they are properly scored
+#Negative values first
+genetrails <- selectedLabs %>% 
+  filter(Labs..Lab.Type == "GeneTrails") %>% 
+  select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type, Labs..Comment) %>% 
+  arrange(Specimen..Lab.ID)
+
+genetrails$Specimen..Lab.ID <- factor(genetrails$Specimen..Lab.ID)
+
+genetrails.wide <- genetrails %>% 
+  spread(Labs..Lab.Type, Labs..Result) %>% 
+  mutate_each(funs(as.character(.)), 3)
+  
+genetrails.clean <- genetrails.wide %>% 
+  mutate(GENETRAILS_PANEL_GENERAL = 
+           ifelse(GeneTrails == "positive", "Positive",genetrails.wide$GeneTrails)) %>% 
+  select(Specimen..Lab.ID, GENETRAILS_PANEL_GENERAL, Labs..Comment)
+
+genetrails.clean$GENETRAILS_PANEL_GENERAL <- factor(genetrails.clean$GENETRAILS_PANEL_GENERAL)
+
+summary(genetrails.clean)
+
+dl1AMLlist_kfncprag <- left_join(dl1AMLlist_kfncpra, genetrails.clean, by = "Specimen..Lab.ID")
+compiled_data <- dl1AMLlist_kfncprag
+```
+
+## Fixing mismatched data
+### If Genetrails != NA, AND FLT/NPM/CEBPA = NA, change to negative
+I manually confirmed that none of the genetrails comments report a mutation that is listed as NA in the gene-specific field, including P53, RUNX1, ASXL1
+```{r}
+nrow(discrepencies)
+
+compiled_data_neg <- compiled_data %>%
+  mutate(FLT3_ITD = 
+           ifelse(!is.na(compiled_data$GENETRAILS_PANEL_GENERAL) 
+                  & is.na(compiled_data$FLT3_ITD), FALSE, compiled_data$FLT3_ITD)
+         ) %>% 
+  mutate(NPM1_MUTATED = 
+           ifelse(!is.na(compiled_data$GENETRAILS_PANEL_GENERAL) 
+                  & is.na(compiled_data$NPM1_MUTATED), FALSE, compiled_data$NPM1_MUTATED)
+           ) %>% 
+  mutate(CEBPA_MUTATED = 
+           ifelse(!is.na(compiled_data$GENETRAILS_PANEL_GENERAL) 
+                  & is.na(compiled_data$CEBPA_MUTATED), FALSE, compiled_data$CEBPA_MUTATED)
+           ) %>% 
+  mutate(TP53 =
+           ifelse(!is.na(compiled_data$GENETRAILS_PANEL_GENERAL)
+                  & is.na(compiled_data$TP53), FALSE, compiled_data$TP53)
+         ) %>% 
+  mutate(RUNX1 =
+           ifelse(!is.na(compiled_data$GENETRAILS_PANEL_GENERAL)
+                  & is.na(compiled_data$RUNX1), FALSE, compiled_data$RUNX1)
+         ) %>%  
+  mutate(ASXL1 =
+           ifelse(!is.na(compiled_data$GENETRAILS_PANEL_GENERAL)
+                  & is.na(compiled_data$ASXL1), FALSE, compiled_data$ASXL1)
+         )
+
+
+compiled_data_neg %>%
+  filter(!is.na(GENETRAILS_PANEL_GENERAL)) %>% 
+  filter(is.na(FLT3_ITD) | is.na(NPM1_MUTATED) | is.na(CEBPA_MUTATED) |
+           is.na(TP53) | is.na(RUNX1) | is.na(ASXL1)) %>% 
+  select(Specimen..Lab.ID,FLT3_ITD, NPM1_MUTATED, CEBPA_MUTATED,
+         TP53, RUNX1, ASXL1, GENETRAILS_PANEL_GENERAL, Labs..Comment) -> discrepencies
+
+nrow(discrepencies)
+
+all_data <- compiled_data_neg
+
+complete_records <- all_data %>% 
+  filter(!is.na(CYTOGENETICS) &
+                      !is.na(FLT3_ITD) &
+                      !is.na(NPM1_MUTATED) &
+                      !is.na(CEBPA_MUTATED) &
+                      !is.na(RUNX1) &
+                      !is.na(ASXL1) &
+                      !is.na(TP53)) %>% 
+  rename(lab_id = Specimen..Lab.ID) %>% 
+  rename(patient_id = Patient..Patient.ID) %>% 
+  select(-Specimen.Groups..Specimen.Group, -GENETRAILS_PANEL_GENERAL, -Labs..Comment) %>% 
+  rename(NPM1 = NPM1_MUTATED) %>% 
+  rename(CEBPA = CEBPA_MUTATED)
+
+complete_records %>% nrow()
+complete_records %>% head()
+
+write.csv(complete_records, "./data/BeatAMLdataset.csv")
+```
+
+
+
+

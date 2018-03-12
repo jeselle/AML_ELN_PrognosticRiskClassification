@@ -21,7 +21,8 @@ eln_risk_caller <- function(full.sheet) {
                     ifelse(RUNX1 | ASXL1, "Adverse",
                       "Intermediate"))))))))))))))      
   
-  risk_col <- as.factor(updated.sheet$risk)
+  risk_col <- as.factor(updated.sheet$risk) %>% 
+    fct_relevel("Favorable", "Adverse", "Intermediate")
   
   return(risk_col)
   

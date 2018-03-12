@@ -1,10 +1,15 @@
 ---
-title: "Prognostic Risk and Mutational Co-occurrance in AML"
+title: "Prognostic Risk and Mutational Co-occurrance in AML - Supplemental methods and analysis code"
+author: "Kevin Watanabe-Smith"
 output:
   pdf_document: 
     toc: yes
   html_document: default
 ---
+# Introduction
+
+What follows is the complete and reproducible analysis code for this manuscript. Data was analyzed using R (version 3.4.2) and this output is generated from a R markdown document using knitr. The raw data, analysis code, this PDF, and output data can be found in the manuscript github page (https://github.com/WatanabeSmith/AML_ELN_PrognosticRiskClassification).
+
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(message=FALSE, warning=FALSE)
@@ -19,6 +24,7 @@ library(eulerr)
 library(caret)
 library(gridExtra)
 library(tidyverse)
+tic()
 ```
 
 # Importing Data
@@ -40,8 +46,10 @@ rawClassification <- read.delim("./data/AMLSG_Classification.txt")
 ```{r}
 #Select only relevant fields, convert to factor
 clinicalTrim <- clinicalData %>%
-  select(PDID, CEBPA, NPM1, FLT3_ITD) %>% 
-  mutate_all(funs(as.factor(.)))
+  select(PDID, CEBPA, NPM1, FLT3_ITD, AOD) %>% 
+  mutate(CEBPA = as.factor(CEBPA)) %>% 
+  mutate(NPM1 = as.factor(NPM1)) %>% 
+  mutate(FLT3_ITD = as.factor(FLT3_ITD))
 summary(clinicalTrim)
 
 ```
@@ -168,7 +176,7 @@ clin_newmutations[mutated.fields] <- mutated.only #Add data back into core dataf
 amlsg <- clin_newmutations %>% 
   rename(CYTOGENETICS = karyotype) %>% 
   select(PDID, CYTOGENETICS, FLT3_ITD, NPM1,
-         CEBPA, TP53, RUNX1, ASXL1)
+         CEBPA, TP53, RUNX1, ASXL1, age = AOD)
 
 #Number of Incomplete records
 amlsg %>%
@@ -211,7 +219,8 @@ trim.karyotype <- raw.karyotype %>% select(PATIENT_ID, CYTOGENETICS,
                                            INFERRED_GENOMIC_REARRANGEMENT,
                                            RISK_CYTO, RISK_MOLECULAR,
                                            HISTOLOGICAL_SUBTYPE,
-                                           CYTOGENETIC_CODE_OTHER)
+                                           CYTOGENETIC_CODE_OTHER,
+                                           age = AGE)
 
 #Convert non-conforming karyotype entries to NA (later removed)
 trim.karyotype$CYTOGENETICS <- as.character(trim.karyotype$CYTOGENETICS)
@@ -324,7 +333,7 @@ tcga.karyo.mutations[mutated.fields] <- mutated.only
 tcga_complete <- tcga.karyo.mutations %>% 
   rename(PDID = PATIENT_ID) %>% 
   select(PDID, CYTOGENETICS, FLT3_ITD, NPM1, CEBPA,
-         TP53, RUNX1, ASXL1, source)
+         TP53, RUNX1, ASXL1, age, source)
 ```
 
 ## Beat AML dataset
@@ -346,6 +355,31 @@ baml_complete <- raw.baml %>%
 allsets <- amlsg_complete %>% 
   bind_rows(tcga_complete) %>% 
   bind_rows(baml_complete)
+```
+
+The AMLSG dataset is significantly younger than the TCGA or BAML dataset. Visually these sets are distinct (lines drawn at age = 60), and by Kolmogorov-Smirnov the datasets are from signicantly different distributions. The TCGA and BAML datasets are not signicantly different in age distribution.
+
+```{r}
+ggplot(allsets, aes(x = age)) +
+  geom_histogram() +
+  geom_vline(xintercept = 60) +
+  facet_wrap(~source)
+
+library(ggridges)
+
+ggplot(allsets, aes(x = age, y = source)) +
+  geom_density_ridges() +
+  geom_vline(xintercept = 60)
+  
+
+ks.test(filter(allsets, source == "AMLSG")$age,
+        filter(allsets, source == "TCGA")$age)
+
+ks.test(filter(allsets, source == "AMLSG")$age,
+        filter(allsets, source == "BAML")$age)
+
+ks.test(filter(allsets, source == "BAML")$age,
+        filter(allsets, source == "TCGA")$age)
 ```
 
 
@@ -388,7 +422,7 @@ simple.risk.withkaryo <- allsets.karyo %>%
             ifelse(normal_karyotype, "Normal", "ERROR"
                    )))))) %>% 
   select(PDID, CYTOGENETICS, simplekaryo, FLT3_ITD,
-         NPM1, CEBPA, TP53, RUNX1, ASXL1, eln_risk, source) %>% 
+         NPM1, CEBPA, TP53, RUNX1, ASXL1, eln_risk, age, source) %>% 
   mutate(pra = TP53 | RUNX1 | ASXL1)
 
 #Smaller dataframe
@@ -923,9 +957,18 @@ for(row in 1:nrow(possibleTestCombinations)){
   allriskvariations <- cbind(allriskvariations, riskonly)
 }
 
+
+
 #Grab only columns with true risk calls ("eln_risk") and simulated risk calls
 allriskonly <- allriskvariations %>% 
-  select(eln_risk:kfncrpa)
+  select(age,eln_risk:kfncrpa)
+
+
+##This section no longer required as factor order is now set within eln_risk_caller().
+#Setting factor levels to ensure confusion matrix parsing is accurate
+# allriskonly$eln_risk <- allriskonly$eln_risk %>% 
+#   fct_relevel("Favorable", "Adverse", "Intermediate")
+
 ```
 
 ## Remove one testing / partial information accuracy
@@ -967,11 +1010,11 @@ callsFromLimitedInfo <- data.frame(tests = factor(),
                                    True_Adverse = int())
 
 #Iterate through risk calls from each test combination
-for(col in 1:ncol(allriskonly)) {
+for(col in 2:ncol(allriskonly)) {
   #paste the true risk call: allriskonly[,1]
   #with the artificial risk call
   callresults <- data.frame("concatenated_risk" = 
-               paste(allriskonly[,1], allriskonly[,col], sep = " ")) %>% 
+               paste(allriskonly[,2], allriskonly[,col], sep = " ")) %>% 
     #Join with dictionary above
     left_join(riskcalldictionary, by = "concatenated_risk") %>% 
     count(call_type) %>% #Count number of each error type
@@ -984,6 +1027,8 @@ for(col in 1:ncol(allriskonly)) {
   #Join with existing data
   callsFromLimitedInfo <- bind_rows(callsFromLimitedInfo, test_row)
 }
+
+callsFromLimitedInfo %>% filter(str_detect(tests, "^......$|eln_risk"))
 
 #Create a CSV to allow filtering/exploration in Excel
 #Filter based on presence/absence of each test, determine accuracy and types of errors
@@ -1431,3 +1476,849 @@ coloredgraphs <- arrangeGrob(c1,c2,c3,c4)
 ggsave("./Output/SequencingLinesColored.png", coloredgraphs, height = 20, width = 24)
 ggsave("./Output/SequencingLinesColored.svg", coloredgraphs, height = 20, width = 24)
 ```
+
+## Additional supplemental - Stratifying missing data accuracy and optimal sequencing by age
+
+```{r}
+allrisk_undersixty <- allriskonly %>% 
+  filter(age < 60)
+
+allrisk_oversixty <- allriskonly %>% 
+  filter(age >= 60)
+
+nrow(allriskonly)
+nrow(allrisk_undersixty)
+nrow(allrisk_oversixty)
+
+#Establish output dataframe
+callsFromLimitedInfo <- data.frame(tests = factor(),
+                                   True_Favorable = int(),
+                                   Favorable_called_Intermediate = int(),
+                                   Favorable_called_Adverse = int(),
+                                   Intermediate_called_Favorable = int(),
+                                   True_Intermediate = int(),
+                                   Intermediate_called_Adverse = int(),
+                                   Adverse_called_Favorable = int(),
+                                   Adverse_called_Intermediate = int(),
+                                   True_Adverse = int())
+
+#Iterate through risk calls from each test combination
+for(col in 2:ncol(allrisk_undersixty)) {
+  #paste the true risk call: allriskonly[,2]
+  #with the artificial risk call
+  callresults <- data.frame("concatenated_risk" = 
+               paste(allrisk_undersixty[,2], allrisk_undersixty[,col], sep = " ")) %>% 
+    #Join with dictionary above
+    left_join(riskcalldictionary, by = "concatenated_risk") %>% 
+    count(call_type) %>% #Count number of each error type
+    spread(key = call_type, value = n) %>%  #Pivot data
+    mutate_all(funs(round(./nrow(allrisk_undersixty), digits = 3))) #Calculate percentage rate
+    
+    #Create row of new data
+  test_row <- cbind(data.frame(tests = colnames(allrisk_undersixty[col])), callresults)
+  
+  #Join with existing data
+  callsFromLimitedInfo <- bind_rows(callsFromLimitedInfo, test_row)
+}
+
+#Results for missing one test results stacked bar chart
+callsFromLimitedInfo %>% 
+  filter(str_detect(tests,"eln_risk|^......$"))
+
+#Determine accuracy or balanced accuracy for each test combination
+#Also calculate accuracy for identifying samples relative to a single category
+#e.g. Is a sample Intermediate or Not-Intermediate?
+
+#Establish vectors
+confusiondf <- data.frame()
+loopcounter <- 0
+totalACC <- vector()
+favACC <- vector()
+intACC <- vector()
+advACC <- vector()
+testname <- vector()
+
+for(i in 2:ncol(allrisk_undersixty)) {
+  loopcounter <- loopcounter + 1
+  
+  cfm <- confusionMatrix(allrisk_undersixty[,i], allrisk_undersixty$eln_risk)
+  #pull out specific accuracy measures from confusionMatrix
+  totalACC[loopcounter] <- cfm$overall[[1]]
+  favACC[loopcounter] <- cfm$byClass[1,11]
+  intACC[loopcounter] <- cfm$byClass[3,11]
+  advACC[loopcounter] <- cfm$byClass[2,11]
+  testname[loopcounter] <- colnames(allrisk_undersixty[,c(1,i)])[[2]]
+}
+
+testacc <- data.frame(tests = testname, totalACC = totalACC,
+                      f_bacc = favACC, i_bacc = intACC, a_bacc = advACC)
+
+#Create a field for number of tests included in a combination
+ordered.acc <- testacc %>% 
+  mutate(testnum = 
+           ifelse(tests == "NoInfo", 0,
+                  str_count(tests, "[:alpha:]"))) %>% 
+  arrange(testnum, desc(totalACC))
+
+alpha.acc <- ordered.acc %>% 
+  rowwise() %>% 
+  mutate(alphatests = string_sort(tests)) %>% 
+  ungroup() %>% 
+  as.data.frame()
+
+
+#Total accuracy
+
+#Establish vectors
+t_one <- vector()
+t_two <- vector()
+t_three <- vector()
+t_four <- vector()
+t_five <- vector()
+t_six <- vector()
+t_seven <- vector()
+p1 <- vector()
+p2 <- vector()
+p3 <- vector()
+p4 <- vector()
+p5 <- vector()
+p6 <- vector()
+p7 <- vector()
+loopcount <- 0
+
+#Iterate through 5,040 permutations established above
+for(i in sequence){
+  loopcount <- loopcount + 1
+  
+  #Extract tests in order (test one, test two)
+  t_one <- string_sort(substr(i,1,1)) #e.g. k
+  t_two <- string_sort(substr(i,1,2)) #e.g. kp
+  t_three <- string_sort(substr(i,1,3)) #e.g. kpf
+  t_four <- string_sort(substr(i,1,4)) #e.g. kpfc
+  t_five <- string_sort(substr(i,1,5)) #e.g. kpfcn
+  t_six <- string_sort(substr(i,1,6)) #e.g. kpfcnr
+  t_seven <- string_sort(substr(i,1,7)) #e.g. kpfcnra
+  
+  #extract accuracy from matching record
+  p1[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_one) %>% 
+    .$totalACC
+  p2[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_two) %>% 
+    .$totalACC
+  p3[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_three) %>% 
+    .$totalACC
+  p4[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_four) %>% 
+    .$totalACC
+  p5[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_five) %>% 
+    .$totalACC
+  p6[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_six) %>% 
+    .$totalACC
+  p7[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_seven) %>% 
+    .$totalACC
+}
+
+#assemble results
+everysequence <- data.frame(ordered_tests = sequence, t1 = p1,
+                            t2 = p2, t3 = p3, t4 = p4, t5 = p5,
+                            t6 = p6, t7 = p7)
+
+head(everysequence)
+
+#Pivot results to long format (used for graphs below)
+longsequence <- everysequence %>% 
+  gather(key = TestInSeq, value = TotalAcc, -ordered_tests) %>% 
+  mutate(TestInSeq = as.numeric(
+           substr(TestInSeq,2,2)))
+
+#################
+
+## favorable accuracy
+t_one <- vector()
+t_two <- vector()
+t_three <- vector()
+t_four <- vector()
+t_five <- vector()
+t_six <- vector()
+t_seven <- vector()
+p1 <- vector()
+p2 <- vector()
+p3 <- vector()
+p4 <- vector()
+p5 <- vector()
+p6 <- vector()
+p7 <- vector()
+loopcount <- 0
+
+for(i in sequence){
+  loopcount <- loopcount + 1
+  t_one <- string_sort(substr(i,1,1))
+  t_two <- string_sort(substr(i,1,2))
+  t_three <- string_sort(substr(i,1,3))
+  t_four <- string_sort(substr(i,1,4))
+  t_five <- string_sort(substr(i,1,5))
+  t_six <- string_sort(substr(i,1,6))
+  t_seven <- string_sort(substr(i,1,7))
+  
+  p1[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_one) %>% 
+    .$f_bacc
+  p2[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_two) %>% 
+    .$f_bacc
+  p3[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_three) %>% 
+    .$f_bacc
+  p4[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_four) %>% 
+    .$f_bacc
+  p5[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_five) %>% 
+    .$f_bacc
+  p6[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_six) %>% 
+    .$f_bacc
+  p7[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_seven) %>% 
+    .$f_bacc
+}
+
+facc_sequence <- data.frame(ordered_tests = sequence, f1 = p1,
+                            f2 = p2, f3 = p3, f4 = p4, f5 = p5,
+                            f6 = p6, f7 = p7)
+
+facc_long <- facc_sequence %>% 
+  gather(key = TestInSeq, value = f_bacc, -ordered_tests) %>% 
+  mutate(TestInSeq = as.numeric(
+           substr(TestInSeq,2,2)))
+
+###############
+
+## intermediate ACC
+t_one <- vector()
+t_two <- vector()
+t_three <- vector()
+t_four <- vector()
+t_five <- vector()
+t_six <- vector()
+t_seven <- vector()
+p1 <- vector()
+p2 <- vector()
+p3 <- vector()
+p4 <- vector()
+p5 <- vector()
+p6 <- vector()
+p7 <- vector()
+loopcount <- 0
+
+for(i in sequence){
+  loopcount <- loopcount + 1
+  t_one <- string_sort(substr(i,1,1))
+  t_two <- string_sort(substr(i,1,2))
+  t_three <- string_sort(substr(i,1,3))
+  t_four <- string_sort(substr(i,1,4))
+  t_five <- string_sort(substr(i,1,5))
+  t_six <- string_sort(substr(i,1,6))
+  t_seven <- string_sort(substr(i,1,7))
+  
+  p1[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_one) %>% 
+    .$i_bacc
+  p2[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_two) %>% 
+    .$i_bacc
+  p3[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_three) %>% 
+    .$i_bacc
+  p4[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_four) %>% 
+    .$i_bacc
+  p5[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_five) %>% 
+    .$i_bacc
+  p6[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_six) %>% 
+    .$i_bacc
+  p7[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_seven) %>% 
+    .$i_bacc
+}
+
+iacc_sequence <- data.frame(ordered_tests = sequence, i1 = p1,
+                            i2 = p2, i3 = p3, i4 = p4, i5 = p5,
+                            i6 = p6, i7 = p7)
+
+iacc_long <- iacc_sequence %>% 
+  gather(key = TestInSeq, value = i_bacc, -ordered_tests) %>% 
+  mutate(TestInSeq = as.numeric(
+           substr(TestInSeq,2,2)))
+
+#############
+# adverse Acc
+
+t_one <- vector()
+t_two <- vector()
+t_three <- vector()
+t_four <- vector()
+t_five <- vector()
+t_six <- vector()
+t_seven <- vector()
+p1 <- vector()
+p2 <- vector()
+p3 <- vector()
+p4 <- vector()
+p5 <- vector()
+p6 <- vector()
+p7 <- vector()
+loopcount <- 0
+
+for(i in sequence){
+  loopcount <- loopcount + 1
+  t_one <- string_sort(substr(i,1,1))
+  t_two <- string_sort(substr(i,1,2))
+  t_three <- string_sort(substr(i,1,3))
+  t_four <- string_sort(substr(i,1,4))
+  t_five <- string_sort(substr(i,1,5))
+  t_six <- string_sort(substr(i,1,6))
+  t_seven <- string_sort(substr(i,1,7))
+  
+  p1[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_one) %>% 
+    .$a_bacc
+  p2[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_two) %>% 
+    .$a_bacc
+  p3[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_three) %>% 
+    .$a_bacc
+  p4[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_four) %>% 
+    .$a_bacc
+  p5[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_five) %>% 
+    .$a_bacc
+  p6[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_six) %>% 
+    .$a_bacc
+  p7[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_seven) %>% 
+    .$a_bacc
+}
+
+aacc_sequence <- data.frame(ordered_tests = sequence, a1 = p1,
+                            a2 = p2, a3 = p3, a4 = p4, a5 = p5,
+                            a6 = p6, a7 = p7)
+
+aacc_long <- aacc_sequence %>% 
+  gather(key = TestInSeq, value = a_bacc, -ordered_tests) %>% 
+  mutate(TestInSeq = as.numeric(
+           substr(TestInSeq,2,2)))
+
+###########
+
+four_sequence_undersixty <- left_join(everysequence, facc_sequence, by = "ordered_tests") %>% 
+  left_join(iacc_sequence, by = "ordered_tests") %>% 
+  left_join(aacc_sequence, by = "ordered_tests")
+
+four_long_undersixty <- left_join(longsequence, facc_long, by = c("ordered_tests", "TestInSeq")) %>% 
+  left_join(iacc_long, by = c("ordered_tests", "TestInSeq")) %>% 
+  left_join(aacc_long, by = c("ordered_tests", "TestInSeq"))
+
+#save data in wide and long format as CSVs
+write_csv(four_sequence_undersixty, "./Output/AllSequencesWide_undersixty.csv")
+write_csv(four_long_undersixty, "./Output/AllSequencesLong_undersixty.csv")
+
+c1 <- ggplot(four_long_undersixty, aes(x=TestInSeq, y=TotalAcc, group=ordered_tests)) +
+  geom_line(size = 1, color = "grey85") +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "krapfnc"),
+            color = "#ef4036", size = 1.5) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "kfnrcap"),
+            color = "#fbaf3f", size = 1.4) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "krfncap"),
+            color = "#E29D39", size = 1.3) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "knfcpra"),
+            color = "#2bb673", size = 1.2) 
+
+c2 <- ggplot(four_long_undersixty, aes(x=TestInSeq, y=f_bacc, group=ordered_tests)) +
+  geom_line(size = 1, color = "grey85") +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "krapfnc"),
+            color = "#ef4036", size = 1.5) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "kfnrcap"),
+            color = "#fbaf3f", size = 1.4) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "krfncap"),
+            color = "#E29D39", size = 1.3) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "knfcpra"),
+            color = "#2bb673", size = 1.2)
+
+c3 <- ggplot(four_long_undersixty, aes(x=TestInSeq, y=i_bacc, group=ordered_tests)) +
+  geom_line(size = 1, color = "grey85") +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "krapfnc"),
+            color = "#ef4036", size = 1.5) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "kfnrcap"),
+            color = "#fbaf3f", size = 1.4) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "krfncap"),
+            color = "#E29D39", size = 1.3) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "knfcpra"),
+            color = "#2bb673", size = 1.2)
+
+c4 <- ggplot(four_long_undersixty, aes(x=TestInSeq, y=a_bacc, group=ordered_tests)) +
+  geom_line(size = 1, color = "grey85") +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "krapfnc"),
+            color = "#ef4036", size = 1.5) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "kfnrcap"),
+            color = "#fbaf3f", size = 1.4) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "krfncap"),
+            color = "#E29D39", size = 1.3) +
+  geom_line(data = filter(four_long_undersixty, ordered_tests == "knfcpra"),
+            color = "#2bb673", size = 1.2)
+
+grid.arrange(c1,c2,c3,c4)
+
+coloredgraphs <- arrangeGrob(c1,c2,c3,c4)
+
+ggsave("./Output/SequencingLinesColored_undersixty.png", coloredgraphs, height = 20, width = 24)
+ggsave("./Output/SequencingLinesColored_undersixty.svg", coloredgraphs, height = 20, width = 24)
+```
+
+### All patients over 60
+```{r}
+#Establish output dataframe
+callsFromLimitedInfo <- data.frame(tests = factor(),
+                                   True_Favorable = int(),
+                                   Favorable_called_Intermediate = int(),
+                                   Favorable_called_Adverse = int(),
+                                   Intermediate_called_Favorable = int(),
+                                   True_Intermediate = int(),
+                                   Intermediate_called_Adverse = int(),
+                                   Adverse_called_Favorable = int(),
+                                   Adverse_called_Intermediate = int(),
+                                   True_Adverse = int())
+
+#Iterate through risk calls from each test combination
+for(col in 2:ncol(allrisk_oversixty)) {
+  #paste the true risk call: allriskonly[,2]
+  #with the artificial risk call
+  callresults <- data.frame("concatenated_risk" = 
+               paste(allrisk_oversixty[,2], allrisk_oversixty[,col], sep = " ")) %>% 
+    #Join with dictionary above
+    left_join(riskcalldictionary, by = "concatenated_risk") %>% 
+    count(call_type) %>% #Count number of each error type
+    spread(key = call_type, value = n) %>%  #Pivot data
+    mutate_all(funs(round(./nrow(allrisk_oversixty), digits = 3))) #Calculate percentage rate
+    
+    #Create row of new data
+  test_row <- cbind(data.frame(tests = colnames(allrisk_oversixty[col])), callresults)
+  
+  #Join with existing data
+  callsFromLimitedInfo <- bind_rows(callsFromLimitedInfo, test_row)
+}
+
+#Results for missing one test results stacked bar chart
+callsFromLimitedInfo %>% 
+  filter(str_detect(tests,"eln_risk|^......$"))
+
+#Determine accuracy or balanced accuracy for each test combination
+#Also calculate accuracy for identifying samples relative to a single category
+#e.g. Is a sample Intermediate or Not-Intermediate?
+
+#Establish vectors
+confusiondf <- data.frame()
+loopcounter <- 0
+totalACC <- vector()
+favACC <- vector()
+intACC <- vector()
+advACC <- vector()
+testname <- vector()
+
+for(i in 2:ncol(allrisk_oversixty)) {
+  loopcounter <- loopcounter + 1
+  
+  cfm <- confusionMatrix(allrisk_oversixty[,i], allrisk_oversixty$eln_risk)
+  #pull out specific accuracy measures from confusionMatrix
+  totalACC[loopcounter] <- cfm$overall[[1]]
+  favACC[loopcounter] <- cfm$byClass[1,11]
+  intACC[loopcounter] <- cfm$byClass[3,11]
+  advACC[loopcounter] <- cfm$byClass[2,11]
+  testname[loopcounter] <- colnames(allrisk_oversixty[,c(1,i)])[[2]]
+}
+
+testacc <- data.frame(tests = testname, totalACC = totalACC,
+                      f_bacc = favACC, i_bacc = intACC, a_bacc = advACC)
+
+#Create a field for number of tests included in a combination
+ordered.acc <- testacc %>% 
+  mutate(testnum = 
+           ifelse(tests == "NoInfo", 0,
+                  str_count(tests, "[:alpha:]"))) %>% 
+  arrange(testnum, desc(totalACC))
+
+alpha.acc <- ordered.acc %>% 
+  rowwise() %>% 
+  mutate(alphatests = string_sort(tests)) %>% 
+  ungroup() %>% 
+  as.data.frame()
+
+
+#Total accuracy
+
+#Establish vectors
+t_one <- vector()
+t_two <- vector()
+t_three <- vector()
+t_four <- vector()
+t_five <- vector()
+t_six <- vector()
+t_seven <- vector()
+p1 <- vector()
+p2 <- vector()
+p3 <- vector()
+p4 <- vector()
+p5 <- vector()
+p6 <- vector()
+p7 <- vector()
+loopcount <- 0
+
+#Iterate through 5,040 permutations established above
+for(i in sequence){
+  loopcount <- loopcount + 1
+  
+  #Extract tests in order (test one, test two)
+  t_one <- string_sort(substr(i,1,1)) #e.g. k
+  t_two <- string_sort(substr(i,1,2)) #e.g. kp
+  t_three <- string_sort(substr(i,1,3)) #e.g. kpf
+  t_four <- string_sort(substr(i,1,4)) #e.g. kpfc
+  t_five <- string_sort(substr(i,1,5)) #e.g. kpfcn
+  t_six <- string_sort(substr(i,1,6)) #e.g. kpfcnr
+  t_seven <- string_sort(substr(i,1,7)) #e.g. kpfcnra
+  
+  #extract accuracy from matching record
+  p1[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_one) %>% 
+    .$totalACC
+  p2[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_two) %>% 
+    .$totalACC
+  p3[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_three) %>% 
+    .$totalACC
+  p4[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_four) %>% 
+    .$totalACC
+  p5[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_five) %>% 
+    .$totalACC
+  p6[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_six) %>% 
+    .$totalACC
+  p7[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_seven) %>% 
+    .$totalACC
+}
+
+#assemble results
+everysequence <- data.frame(ordered_tests = sequence, t1 = p1,
+                            t2 = p2, t3 = p3, t4 = p4, t5 = p5,
+                            t6 = p6, t7 = p7)
+
+head(everysequence)
+
+#Pivot results to long format (used for graphs below)
+longsequence <- everysequence %>% 
+  gather(key = TestInSeq, value = TotalAcc, -ordered_tests) %>% 
+  mutate(TestInSeq = as.numeric(
+           substr(TestInSeq,2,2)))
+
+#################
+
+## favorable accuracy
+t_one <- vector()
+t_two <- vector()
+t_three <- vector()
+t_four <- vector()
+t_five <- vector()
+t_six <- vector()
+t_seven <- vector()
+p1 <- vector()
+p2 <- vector()
+p3 <- vector()
+p4 <- vector()
+p5 <- vector()
+p6 <- vector()
+p7 <- vector()
+loopcount <- 0
+
+for(i in sequence){
+  loopcount <- loopcount + 1
+  t_one <- string_sort(substr(i,1,1))
+  t_two <- string_sort(substr(i,1,2))
+  t_three <- string_sort(substr(i,1,3))
+  t_four <- string_sort(substr(i,1,4))
+  t_five <- string_sort(substr(i,1,5))
+  t_six <- string_sort(substr(i,1,6))
+  t_seven <- string_sort(substr(i,1,7))
+  
+  p1[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_one) %>% 
+    .$f_bacc
+  p2[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_two) %>% 
+    .$f_bacc
+  p3[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_three) %>% 
+    .$f_bacc
+  p4[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_four) %>% 
+    .$f_bacc
+  p5[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_five) %>% 
+    .$f_bacc
+  p6[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_six) %>% 
+    .$f_bacc
+  p7[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_seven) %>% 
+    .$f_bacc
+}
+
+facc_sequence <- data.frame(ordered_tests = sequence, f1 = p1,
+                            f2 = p2, f3 = p3, f4 = p4, f5 = p5,
+                            f6 = p6, f7 = p7)
+
+facc_long <- facc_sequence %>% 
+  gather(key = TestInSeq, value = f_bacc, -ordered_tests) %>% 
+  mutate(TestInSeq = as.numeric(
+           substr(TestInSeq,2,2)))
+
+###############
+
+## intermediate ACC
+t_one <- vector()
+t_two <- vector()
+t_three <- vector()
+t_four <- vector()
+t_five <- vector()
+t_six <- vector()
+t_seven <- vector()
+p1 <- vector()
+p2 <- vector()
+p3 <- vector()
+p4 <- vector()
+p5 <- vector()
+p6 <- vector()
+p7 <- vector()
+loopcount <- 0
+
+for(i in sequence){
+  loopcount <- loopcount + 1
+  t_one <- string_sort(substr(i,1,1))
+  t_two <- string_sort(substr(i,1,2))
+  t_three <- string_sort(substr(i,1,3))
+  t_four <- string_sort(substr(i,1,4))
+  t_five <- string_sort(substr(i,1,5))
+  t_six <- string_sort(substr(i,1,6))
+  t_seven <- string_sort(substr(i,1,7))
+  
+  p1[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_one) %>% 
+    .$i_bacc
+  p2[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_two) %>% 
+    .$i_bacc
+  p3[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_three) %>% 
+    .$i_bacc
+  p4[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_four) %>% 
+    .$i_bacc
+  p5[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_five) %>% 
+    .$i_bacc
+  p6[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_six) %>% 
+    .$i_bacc
+  p7[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_seven) %>% 
+    .$i_bacc
+}
+
+iacc_sequence <- data.frame(ordered_tests = sequence, i1 = p1,
+                            i2 = p2, i3 = p3, i4 = p4, i5 = p5,
+                            i6 = p6, i7 = p7)
+
+iacc_long <- iacc_sequence %>% 
+  gather(key = TestInSeq, value = i_bacc, -ordered_tests) %>% 
+  mutate(TestInSeq = as.numeric(
+           substr(TestInSeq,2,2)))
+
+#############
+# adverse Acc
+
+t_one <- vector()
+t_two <- vector()
+t_three <- vector()
+t_four <- vector()
+t_five <- vector()
+t_six <- vector()
+t_seven <- vector()
+p1 <- vector()
+p2 <- vector()
+p3 <- vector()
+p4 <- vector()
+p5 <- vector()
+p6 <- vector()
+p7 <- vector()
+loopcount <- 0
+
+for(i in sequence){
+  loopcount <- loopcount + 1
+  t_one <- string_sort(substr(i,1,1))
+  t_two <- string_sort(substr(i,1,2))
+  t_three <- string_sort(substr(i,1,3))
+  t_four <- string_sort(substr(i,1,4))
+  t_five <- string_sort(substr(i,1,5))
+  t_six <- string_sort(substr(i,1,6))
+  t_seven <- string_sort(substr(i,1,7))
+  
+  p1[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_one) %>% 
+    .$a_bacc
+  p2[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_two) %>% 
+    .$a_bacc
+  p3[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_three) %>% 
+    .$a_bacc
+  p4[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_four) %>% 
+    .$a_bacc
+  p5[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_five) %>% 
+    .$a_bacc
+  p6[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_six) %>% 
+    .$a_bacc
+  p7[loopcount] <- alpha.acc %>%
+    filter(alphatests == t_seven) %>% 
+    .$a_bacc
+}
+
+aacc_sequence <- data.frame(ordered_tests = sequence, a1 = p1,
+                            a2 = p2, a3 = p3, a4 = p4, a5 = p5,
+                            a6 = p6, a7 = p7)
+
+aacc_long <- aacc_sequence %>% 
+  gather(key = TestInSeq, value = a_bacc, -ordered_tests) %>% 
+  mutate(TestInSeq = as.numeric(
+           substr(TestInSeq,2,2)))
+
+###########
+
+
+four_long_oversixty <- left_join(longsequence, facc_long, by = c("ordered_tests", "TestInSeq")) %>% 
+  left_join(iacc_long, by = c("ordered_tests", "TestInSeq")) %>% 
+  left_join(aacc_long, by = c("ordered_tests", "TestInSeq"))
+
+four_sequence_oversixty <- left_join(everysequence, facc_sequence, by = "ordered_tests") %>% 
+  left_join(iacc_sequence, by = "ordered_tests") %>% 
+  left_join(aacc_sequence, by = "ordered_tests")
+
+#save data in wide and long format as CSVs
+write_csv(four_sequence_oversixty, "./Output/AllSequencesWide_oversixty.csv")
+write_csv(four_long_oversixty, "./Output/AllSequencesLong_oversixty.csv")
+
+c1 <- ggplot(four_long_oversixty, aes(x=TestInSeq, y=TotalAcc, group=ordered_tests)) +
+  geom_line(size = 1, color = "grey85") +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "krapfnc"),
+            color = "#ef4036", size = 1.5) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "kfnrcap"),
+            color = "#fbaf3f", size = 1.4) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "krfncap"),
+            color = "#E29D39", size = 1.3) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "knfcpra"),
+            color = "#2bb673", size = 1.2) 
+
+c2 <- ggplot(four_long_oversixty, aes(x=TestInSeq, y=f_bacc, group=ordered_tests)) +
+  geom_line(size = 1, color = "grey85") +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "krapfnc"),
+            color = "#ef4036", size = 1.5) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "kfnrcap"),
+            color = "#fbaf3f", size = 1.4) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "krfncap"),
+            color = "#E29D39", size = 1.3) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "knfcpra"),
+            color = "#2bb673", size = 1.2)
+
+c3 <- ggplot(four_long_oversixty, aes(x=TestInSeq, y=i_bacc, group=ordered_tests)) +
+  geom_line(size = 1, color = "grey85") +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "krapfnc"),
+            color = "#ef4036", size = 1.5) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "kfnrcap"),
+            color = "#fbaf3f", size = 1.4) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "krfncap"),
+            color = "#E29D39", size = 1.3) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "knfcpra"),
+            color = "#2bb673", size = 1.2)
+
+c4 <- ggplot(four_long_oversixty, aes(x=TestInSeq, y=a_bacc, group=ordered_tests)) +
+  geom_line(size = 1, color = "grey85") +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "krapfnc"),
+            color = "#ef4036", size = 1.5) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "kfnrcap"),
+            color = "#fbaf3f", size = 1.4) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "krfncap"),
+            color = "#E29D39", size = 1.3) +
+  geom_line(data = filter(four_long_oversixty, ordered_tests == "knfcpra"),
+            color = "#2bb673", size = 1.2)
+
+grid.arrange(c1,c2,c3,c4)
+
+coloredgraphs <- arrangeGrob(c1,c2,c3,c4)
+
+ggsave("./Output/SequencingLinesColored_oversixty.png", coloredgraphs, height = 20, width = 24)
+ggsave("./Output/SequencingLinesColored_oversixty.svg", coloredgraphs, height = 20, width = 24)
+
+```
+
+## Accuracy missing one test - stratified by patients 60 or older
+
+```{r}
+missingone_acc_df <- data.frame()
+
+find_missingone_acc <- function(datawide) {
+  acc_vect <- vector()
+  for(test in c("k","n","f","c","p","r","a")){
+    acc <- datawide %>% 
+      filter(str_detect(ordered_tests, paste0(test,"$"))) %>% 
+      .[1,7] %>% 
+      round(2)
+    acc_vect <- append(acc_vect, acc)
+    # print(test)
+    # print(acc)
+      
+  }
+  return(acc_vect)
+}
+print("all patients")
+
+missing_acc_df <- data.frame(
+  all_patients = find_missingone_acc(four_sequence),
+  patients_over_60 = find_missingone_acc(four_sequence_oversixty),
+  patients_under_60 = find_missingone_acc(four_sequence_undersixty)) %>% t()
+
+colnames(missing_acc_df) <- c("k","n","f","c","p","r","a")
+
+missing_acc_df %>% as.table()
+```
+
+The individual importance of each test (while all other data sources are present) is slightly moderately impacted by age over/under 60 in the case of Karyotype and RUNX1 mutational status. Other tests are minimally different between the two groups.
+
+
+```{r}
+toc()
+```
+

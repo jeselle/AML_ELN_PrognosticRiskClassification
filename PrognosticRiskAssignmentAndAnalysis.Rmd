@@ -132,7 +132,7 @@ Samples without a called mutation are considered negative for mutations at the g
 ```{r}
 #Create list of samples mutated for TP53
 P53 <- rawGenetic %>% 
-  filter(GENE == "TP53") %>% #If there is a mutation recorded at TP53
+  dplyr::filter(GENE == "TP53") %>% #If there is a mutation recorded at TP53
   select(SAMPLE_NAME, GENE) %>% #Remove other fields
   mutate(TP53 = TRUE) %>%  #Mark sample as mutated for TP53
   rename(PDID = SAMPLE_NAME) %>% #Uniform naming
@@ -142,7 +142,7 @@ P53 <- rawGenetic %>%
 
 #Create list of samples mutated for RUNX1 
 RUNX1 <- rawGenetic %>% 
-  filter(GENE == "RUNX1") %>% 
+  dplyr::filter(GENE == "RUNX1") %>% 
   select(SAMPLE_NAME, GENE) %>%
   mutate(RUNX1 = TRUE) %>% 
   rename(PDID = SAMPLE_NAME) %>% 
@@ -151,7 +151,7 @@ RUNX1 <- rawGenetic %>%
 
 #Create list of samples mutated for ASXL1
 ASXL1 <- rawGenetic %>% 
-  filter(GENE == "ASXL1") %>% 
+  dplyr::filter(GENE == "ASXL1") %>% 
   select(SAMPLE_NAME, GENE) %>%
   mutate(ASXL1 = TRUE) %>% 
   rename(PDID = SAMPLE_NAME) %>% 
@@ -180,19 +180,19 @@ amlsg <- clin_newmutations %>%
 
 #Number of Incomplete records
 amlsg %>%
-  filter(is.na(CYTOGENETICS) | is.na(FLT3_ITD) |
+  dplyr::filter(is.na(CYTOGENETICS) | is.na(FLT3_ITD) |
            is.na(NPM1) | is.na(CEBPA)) %>% 
   nrow()
 
 #Number of records Incomplete for all fields
 amlsg %>% 
-  filter(is.na(CYTOGENETICS) & is.na(FLT3_ITD) &
+  dplyr::filter(is.na(CYTOGENETICS) & is.na(FLT3_ITD) &
            is.na(NPM1) & is.na(CEBPA)) %>% 
   nrow()
 
 #Number of Complete records
 amlsg %>% 
-  filter(!is.na(CYTOGENETICS) & !is.na(FLT3_ITD) &
+  dplyr::filter(!is.na(CYTOGENETICS) & !is.na(FLT3_ITD) &
            !is.na(NPM1) & !is.na(CEBPA)) %>% 
   nrow()
 
@@ -200,7 +200,7 @@ amlsg %>%
 #No need to filter on records incomplete for TP53/RUNX1/ASXL1
 #since full coverage was assumed
 amlsg_complete <- amlsg %>% 
-  filter(!is.na(CYTOGENETICS) & !is.na(FLT3_ITD) &
+  dplyr::filter(!is.na(CYTOGENETICS) & !is.na(FLT3_ITD) &
            !is.na(NPM1) & !is.na(CEBPA)) %>% 
   mutate(source = "AMLSG") #Tag records with source of data
 
@@ -272,38 +272,38 @@ short.mutations <- raw.mutations %>% select(PATIENT_ID = Matched_Norm_Sample_Bar
                                             Hugo_Symbol, VARIANT_CLASS)
 
 #Create list of samples mutated at each gene
-NPM.mutations <- short.mutations %>% filter(Hugo_Symbol == "NPM1") %>% 
+NPM.mutations <- short.mutations %>% dplyr::filter(Hugo_Symbol == "NPM1") %>% 
   select(PATIENT_ID) %>% 
   mutate(NPM1 = TRUE) %>% 
   unique()
 
 FLT3.ITD <- short.mutations %>% 
-  filter(Hugo_Symbol == "FLT3" & VARIANT_CLASS == "insertion" |
+  dplyr::filter(Hugo_Symbol == "FLT3" & VARIANT_CLASS == "insertion" |
            VARIANT_CLASS == "indel") %>% 
   select(PATIENT_ID) %>% 
   mutate(FLT3_ITD = TRUE) %>% 
   unique()
 
 CEBPA.mutations <- short.mutations %>% 
-  filter(Hugo_Symbol == "CEBPA") %>% 
+  dplyr::filter(Hugo_Symbol == "CEBPA") %>% 
   select(PATIENT_ID) %>% 
   mutate(CEBPA = TRUE) %>% 
   unique()
 
 TP53.mutations <- short.mutations %>% 
-  filter(Hugo_Symbol == "TP53") %>% 
+  dplyr::filter(Hugo_Symbol == "TP53") %>% 
   select(PATIENT_ID) %>% 
   mutate(TP53 = TRUE) %>% 
   unique()
 
 RUNX1.mutations <- short.mutations %>% 
-  filter(Hugo_Symbol == "RUNX1") %>% 
+  dplyr::filter(Hugo_Symbol == "RUNX1") %>% 
   select(PATIENT_ID) %>% 
   mutate(RUNX1 = TRUE) %>% 
   unique()
 
 ASXL1.mutations <- short.mutations %>% 
-  filter(Hugo_Symbol == "ASXL1") %>% 
+  dplyr::filter(Hugo_Symbol == "ASXL1") %>% 
   select(PATIENT_ID) %>% 
   mutate(ASXL1 = TRUE) %>% 
   unique()
@@ -318,7 +318,7 @@ tcga.karyo.mutations <- clean.karyotype %>%
   full_join(TP53.mutations, by = "PATIENT_ID") %>% 
   full_join(RUNX1.mutations, by = "PATIENT_ID") %>% 
   full_join(ASXL1.mutations, by = "PATIENT_ID") %>% 
-  filter(!is.na(CYTOGENETICS)) %>% 
+  dplyr::filter(!is.na(CYTOGENETICS)) %>% 
   mutate(source = "TCGA")
 
 #Clean NA's into FALSE for mutated fields
@@ -372,14 +372,14 @@ ggplot(allsets, aes(x = age, y = source)) +
   geom_vline(xintercept = 60)
   
 
-ks.test(filter(allsets, source == "AMLSG")$age,
-        filter(allsets, source == "TCGA")$age)
+ks.test(dplyr::filter(allsets, source == "AMLSG")$age,
+        dplyr::filter(allsets, source == "TCGA")$age)
 
-ks.test(filter(allsets, source == "AMLSG")$age,
-        filter(allsets, source == "BAML")$age)
+ks.test(dplyr::filter(allsets, source == "AMLSG")$age,
+        dplyr::filter(allsets, source == "BAML")$age)
 
-ks.test(filter(allsets, source == "BAML")$age,
-        filter(allsets, source == "TCGA")$age)
+ks.test(dplyr::filter(allsets, source == "BAML")$age,
+        dplyr::filter(allsets, source == "TCGA")$age)
 ```
 
 
@@ -432,9 +432,9 @@ simple.risk <- simple.risk.withkaryo %>%
 #Counts for total number of samples and samples from each data source
 #Used later for calculating percentage rates
 nAll <- simple.risk %>% nrow()
-nTCGA <- simple.risk %>% filter(source == "TCGA") %>% nrow()
-nBAML <- simple.risk %>% filter(source == "BAML") %>% nrow()
-nAMLSG <- simple.risk %>% filter(source == "AMLSG") %>% nrow()
+nTCGA <- simple.risk %>% dplyr::filter(source == "TCGA") %>% nrow()
+nBAML <- simple.risk %>% dplyr::filter(source == "BAML") %>% nrow()
+nAMLSG <- simple.risk %>% dplyr::filter(source == "AMLSG") %>% nrow()
 ```
 
 # Figure 1 - Number of samples from each data source
@@ -526,11 +526,11 @@ amlsg.count <- vector()
 for(r in 1:nrow(small.trees)) {
 combo.matching <- simple.risk %>% 
   #Filter sample list down to samples matching the tree node specifications
-    filter(simplekaryo == small.trees[r,1] | is.na(small.trees[r,1])) %>% 
-    filter(pra == small.trees[r,2] | is.na(small.trees[r,2])) %>% 
-    filter(NPM1 == small.trees[r,3] | is.na(small.trees[r,3])) %>% 
-    filter(FLT3_ITD == small.trees[r,4] | is.na(small.trees[r,4])) %>% 
-    filter(CEBPA == small.trees[r,5] | is.na(small.trees[r,5]))
+    dplyr::filter(simplekaryo == small.trees[r,1] | is.na(small.trees[r,1])) %>% 
+    dplyr::filter(pra == small.trees[r,2] | is.na(small.trees[r,2])) %>% 
+    dplyr::filter(NPM1 == small.trees[r,3] | is.na(small.trees[r,3])) %>% 
+    dplyr::filter(FLT3_ITD == small.trees[r,4] | is.na(small.trees[r,4])) %>% 
+    dplyr::filter(CEBPA == small.trees[r,5] | is.na(small.trees[r,5]))
   
   #Count number of matching samples and store
   all.sources[r] <- combo.matching %>% 
@@ -538,13 +538,13 @@ combo.matching <- simple.risk %>%
   
   #Number of samples from each data source
   tcga.count[r] <- combo.matching %>% 
-    filter(source == "TCGA") %>% nrow()
+    dplyr::filter(source == "TCGA") %>% nrow()
   
   baml.count[r] <- combo.matching %>% 
-    filter(source == "BAML") %>% nrow()
+    dplyr::filter(source == "BAML") %>% nrow()
   
   amlsg.count[r] <- combo.matching %>% 
-    filter(source == "AMLSG") %>% nrow()
+    dplyr::filter(source == "AMLSG") %>% nrow()
 }
 
 #Combine data into a single dataframe
@@ -564,21 +564,21 @@ baml.count <- vector()
 amlsg.count <- vector()
 for(r in 1:nrow(pra.trees)){
   combo.matching <- simple.risk %>% 
-    filter(TP53 == pra.trees[r,1] | is.na(pra.trees[r,1])) %>% 
-    filter(RUNX1 == pra.trees[r,2] | is.na(pra.trees[r,2])) %>% 
-    filter(ASXL1 == pra.trees[r,3] | is.na(pra.trees[r,3]))
+    dplyr::filter(TP53 == pra.trees[r,1] | is.na(pra.trees[r,1])) %>% 
+    dplyr::filter(RUNX1 == pra.trees[r,2] | is.na(pra.trees[r,2])) %>% 
+    dplyr::filter(ASXL1 == pra.trees[r,3] | is.na(pra.trees[r,3]))
   
   all.sources[r] <- combo.matching %>% 
     nrow()
   
   tcga.count[r] <- combo.matching %>% 
-    filter(source == "TCGA") %>% nrow()
+    dplyr::filter(source == "TCGA") %>% nrow()
   
   baml.count[r] <- combo.matching %>% 
-    filter(source == "BAML") %>% nrow()
+    dplyr::filter(source == "BAML") %>% nrow()
   
   amlsg.count[r] <- combo.matching %>% 
-    filter(source == "AMLSG") %>% nrow()
+    dplyr::filter(source == "AMLSG") %>% nrow()
 }
 
 scored.pra.trees <- cbind(pra.trees, all.sources,
@@ -604,16 +604,16 @@ Used in writing figure legends or additional explanation
 #Cases where samples are determined to be favorable risk even with the presence
 #of a TP53, RUNX1, or ASXL1 mutation
 simple.risk.withkaryo %>% 
-  filter(eln_risk == "Favorable") %>% 
-  filter(pra == TRUE) %>% 
+  dplyr::filter(eln_risk == "Favorable") %>% 
+  dplyr::filter(pra == TRUE) %>% 
   mutate_if(is.logical,as.numeric) %>% 
   arrange(eln_risk, simplekaryo, FLT3_ITD, NPM1, 
           CEBPA, TP53, RUNX1, ASXL1, source)
 
 #TP53 mutations do not co-occur with favorable karyotypes
 simple.risk.withkaryo %>% 
-  filter(TP53 == TRUE) %>% 
-  filter(simplekaryo != "Adverse") %>% 
+  dplyr::filter(TP53 == TRUE) %>% 
+  dplyr::filter(simplekaryo != "Adverse") %>% 
   mutate_if(is.logical,as.numeric) %>% 
   arrange(eln_risk, simplekaryo, FLT3_ITD, NPM1, 
           CEBPA, TP53, RUNX1, ASXL1, source)
@@ -624,27 +624,27 @@ simple.risk.withkaryo %>%
 
 ```{r}
 pre.venn.df <- scored.pra.trees %>% 
-  filter(!is.na(P53_mut) & !is.na(RUNX1_mut) & !is.na(ASXL1))
+  dplyr::filter(!is.na(P53_mut) & !is.na(RUNX1_mut) & !is.na(ASXL1))
 
-vennReady <- c("P" = pre.venn.df %>% filter(P53_mut == 1 &
+vennReady <- c("P" = pre.venn.df %>% dplyr::filter(P53_mut == 1 &
                                               RUNX1_mut == 0 & ASXL1 == 0) %>%
                  .$all.sources,
-               "R" = pre.venn.df %>% filter(P53_mut == 0 &
+               "R" = pre.venn.df %>% dplyr::filter(P53_mut == 0 &
                                               RUNX1_mut == 1 & ASXL1 == 0) %>%
                  .$all.sources,
-               "A" = pre.venn.df %>% filter(P53_mut == 0 &
+               "A" = pre.venn.df %>% dplyr::filter(P53_mut == 0 &
                                               RUNX1_mut == 0 & ASXL1 == 1) %>%
                  .$all.sources,
-               "P&R" = pre.venn.df %>% filter(P53_mut == 1 &
+               "P&R" = pre.venn.df %>% dplyr::filter(P53_mut == 1 &
                                                 RUNX1_mut == 1 & ASXL1 == 0) %>%
                  .$all.sources,
-               "P&A" = pre.venn.df %>% filter(P53_mut == 1 &
+               "P&A" = pre.venn.df %>% dplyr::filter(P53_mut == 1 &
                                                 RUNX1_mut == 0 & ASXL1 == 1) %>%
                  .$all.sources,
-               "R&A" = pre.venn.df %>% filter(P53_mut == 0 &
+               "R&A" = pre.venn.df %>% dplyr::filter(P53_mut == 0 &
                                                 RUNX1_mut == 1 & ASXL1 == 1) %>%
                  .$all.sources,
-               "P&R&A" = pre.venn.df %>% filter(P53_mut == 1 &
+               "P&R&A" = pre.venn.df %>% dplyr::filter(P53_mut == 1 &
                                                   RUNX1_mut == 1 & ASXL1 == 1) %>%
                  .$all.sources
 )
@@ -691,19 +691,19 @@ pra.cooccurance <- allsets.karyo %>%
 ```{r}
 #For TP53-mutant samples, count by karyotype category and calculate a percentage rate
 p53_co <- pra.cooccurance %>% 
-  filter(TP53 == 1) %>% 
+  dplyr::filter(TP53 == 1) %>% 
   count(simplekaryo) %>% 
   rename(n_TP53 = n) %>% 
   mutate(pct_P53 = n_TP53 / sum(n_TP53))
 
 RUNX1_co <- pra.cooccurance %>% 
-  filter(RUNX1 == 1) %>% 
+  dplyr::filter(RUNX1 == 1) %>% 
   count(simplekaryo) %>% 
   rename(n_RUNX1 = n) %>% 
   mutate(pct_RUNX1 = n_RUNX1 / sum(n_RUNX1))  
 
 ASXL1_co <- pra.cooccurance %>% 
-  filter(ASXL1 == 1) %>% 
+  dplyr::filter(ASXL1 == 1) %>% 
   count(simplekaryo) %>% 
   rename(n_ASXL1 = n) %>% 
   mutate(pct_ASXL1 = n_ASXL1 / sum(n_ASXL1))  
@@ -722,25 +722,25 @@ pra.by.karyo
 ```{r}
 #Creating groups for TP53 venn diagram
 dfVenn <- c("P" = pra.cooccurance %>% 
-              filter(TP53 & !complex_karyotype &  !other_adverse_nonP53) %>%
+              dplyr::filter(TP53 & !complex_karyotype &  !other_adverse_nonP53) %>%
               nrow(),
             "C" = pra.cooccurance %>% 
-              filter(!TP53 & complex_karyotype &  !other_adverse_nonP53) %>%
+              dplyr::filter(!TP53 & complex_karyotype &  !other_adverse_nonP53) %>%
               nrow(),
             "O" = pra.cooccurance %>% 
-              filter(!TP53 & !complex_karyotype &  other_adverse_nonP53) %>%
+              dplyr::filter(!TP53 & !complex_karyotype &  other_adverse_nonP53) %>%
               nrow(),
             "P&C" = pra.cooccurance %>% 
-              filter(TP53 & complex_karyotype &  !other_adverse_nonP53) %>%
+              dplyr::filter(TP53 & complex_karyotype &  !other_adverse_nonP53) %>%
               nrow(),
             "P&O" = pra.cooccurance %>% 
-              filter(TP53 & !complex_karyotype &  other_adverse_nonP53) %>%
+              dplyr::filter(TP53 & !complex_karyotype &  other_adverse_nonP53) %>%
               nrow(),
             "C&O" = pra.cooccurance %>% 
-              filter(!TP53 & complex_karyotype &  other_adverse_nonP53) %>%
+              dplyr::filter(!TP53 & complex_karyotype &  other_adverse_nonP53) %>%
               nrow(),
             "P&C&O" = pra.cooccurance %>% 
-              filter(TP53 & complex_karyotype &  other_adverse_nonP53) %>%
+              dplyr::filter(TP53 & complex_karyotype &  other_adverse_nonP53) %>%
               nrow()
             )
 P53venn <- euler(dfVenn, shape = "ellipse")
@@ -753,25 +753,25 @@ P53venn
 
 #Creating groups for RUNX1 venn diagram
 dfVenn <- c("R" = pra.cooccurance %>%
-              filter(RUNX1 & !complex_karyotype & !other_adverse_nonRUNX) %>%
+              dplyr::filter(RUNX1 & !complex_karyotype & !other_adverse_nonRUNX) %>%
               nrow(),
             "C" = pra.cooccurance %>%
-              filter(!RUNX1 & complex_karyotype & !other_adverse_nonRUNX) %>%
+              dplyr::filter(!RUNX1 & complex_karyotype & !other_adverse_nonRUNX) %>%
               nrow(),
             "O" = pra.cooccurance %>%
-              filter(!RUNX1 & !complex_karyotype & other_adverse_nonRUNX) %>%
+              dplyr::filter(!RUNX1 & !complex_karyotype & other_adverse_nonRUNX) %>%
               nrow(),
             "R&C" = pra.cooccurance %>%
-              filter(RUNX1 & complex_karyotype & !other_adverse_nonRUNX) %>%
+              dplyr::filter(RUNX1 & complex_karyotype & !other_adverse_nonRUNX) %>%
               nrow(),
             "R&O" = pra.cooccurance %>%
-              filter(RUNX1 & !complex_karyotype & other_adverse_nonRUNX) %>%
+              dplyr::filter(RUNX1 & !complex_karyotype & other_adverse_nonRUNX) %>%
               nrow(),
             "C&O" = pra.cooccurance %>%
-              filter(!RUNX1 & complex_karyotype & other_adverse_nonRUNX) %>%
+              dplyr::filter(!RUNX1 & complex_karyotype & other_adverse_nonRUNX) %>%
               nrow(),
             "R&C&O" = pra.cooccurance %>%
-              filter(RUNX1 & complex_karyotype & other_adverse_nonRUNX) %>% 
+              dplyr::filter(RUNX1 & complex_karyotype & other_adverse_nonRUNX) %>% 
               nrow()
             )
 RUNX1venn <- euler(dfVenn, shape = "ellipse")
@@ -784,25 +784,25 @@ RUNX1venn
 
 #Creating groups for ASXL1 venn diagram
 dfVenn <- c("A" = pra.cooccurance %>%
-              filter(ASXL1 & !complex_karyotype & !other_adverse_nonASXL) %>%
+              dplyr::filter(ASXL1 & !complex_karyotype & !other_adverse_nonASXL) %>%
               nrow(),
             "C" = pra.cooccurance %>%
-              filter(!ASXL1 & complex_karyotype & !other_adverse_nonASXL) %>%
+              dplyr::filter(!ASXL1 & complex_karyotype & !other_adverse_nonASXL) %>%
               nrow(),
             "O" = pra.cooccurance %>%
-              filter(!ASXL1 & !complex_karyotype & other_adverse_nonASXL) %>%
+              dplyr::filter(!ASXL1 & !complex_karyotype & other_adverse_nonASXL) %>%
               nrow(),
             "A&C" = pra.cooccurance %>%
-              filter(ASXL1 & complex_karyotype & !other_adverse_nonASXL) %>%
+              dplyr::filter(ASXL1 & complex_karyotype & !other_adverse_nonASXL) %>%
               nrow(),
             "A&O" = pra.cooccurance %>%
-              filter(ASXL1 & !complex_karyotype & other_adverse_nonASXL) %>%
+              dplyr::filter(ASXL1 & !complex_karyotype & other_adverse_nonASXL) %>%
               nrow(),
             "C&O" = pra.cooccurance %>%
-              filter(!ASXL1 & complex_karyotype & other_adverse_nonASXL) %>%
+              dplyr::filter(!ASXL1 & complex_karyotype & other_adverse_nonASXL) %>%
               nrow(),
             "A&C&O" = pra.cooccurance %>%
-              filter(ASXL1 & complex_karyotype & other_adverse_nonASXL) %>%
+              dplyr::filter(ASXL1 & complex_karyotype & other_adverse_nonASXL) %>%
               nrow()
             )
 ASXL1venn <- euler(dfVenn, shape = "ellipse")
@@ -838,7 +838,7 @@ simple.risk %>%
 Subsetted by NPM1 and FLT3-ITD status, shows the percentage of total CEBPA-mutant samples in each group (i.e. 85.2% of all CEBPA mutant samples are wildtype for NPM1 and FLT3-ITD)  
 ```{r}
 simple.risk %>% 
-  filter(CEBPA == TRUE) %>% 
+  dplyr::filter(CEBPA == TRUE) %>% 
   count(NPM1, FLT3_ITD) %>% 
   as.matrix() %>% as.data.frame() %>% 
   mutate(pct = round(n / sum(n), digits = 3))
@@ -1028,12 +1028,12 @@ for(col in 2:ncol(allriskonly)) {
   callsFromLimitedInfo <- bind_rows(callsFromLimitedInfo, test_row)
 }
 
-callsFromLimitedInfo %>% filter(str_detect(tests, "^......$|eln_risk"))
+callsFromLimitedInfo %>% dplyr::filter(str_detect(tests, "^......$|eln_risk"))
 
 #Create a CSV to allow filtering/exploration in Excel
 #Filter based on presence/absence of each test, determine accuracy and types of errors
 callsForCSVexport <- callsFromLimitedInfo %>% 
-  filter(tests != "eln_risk") %>% 
+  dplyr::filter(tests != "eln_risk") %>% 
   mutate(tests =
            ifelse(tests == "NoInfo", "", tests)) %>% 
   mutate(k = str_detect(tests, "k")) %>% 
@@ -1185,25 +1185,25 @@ for(i in sequence){
   
   #extract accuracy from matching record
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$totalACC
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$totalACC
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$totalACC
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$totalACC
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$totalACC
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$totalACC
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$totalACC
 }
 
@@ -1250,25 +1250,25 @@ for(i in sequence){
   t_seven <- string_sort(substr(i,1,7))
   
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$f_bacc
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$f_bacc
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$f_bacc
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$f_bacc
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$f_bacc
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$f_bacc
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$f_bacc
 }
 
@@ -1311,25 +1311,25 @@ for(i in sequence){
   t_seven <- string_sort(substr(i,1,7))
   
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$i_bacc
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$i_bacc
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$i_bacc
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$i_bacc
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$i_bacc
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$i_bacc
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$i_bacc
 }
 
@@ -1373,25 +1373,25 @@ for(i in sequence){
   t_seven <- string_sort(substr(i,1,7))
   
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$a_bacc
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$a_bacc
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$a_bacc
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$a_bacc
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$a_bacc
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$a_bacc
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$a_bacc
 }
 
@@ -1425,46 +1425,46 @@ write_csv(four_long, "./Output/AllSequencesLong.csv")
 ```{r}
 c1 <- ggplot(four_long, aes(x=TestInSeq, y=TotalAcc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2)
 
 c2 <- ggplot(four_long, aes(x=TestInSeq, y=f_bacc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2)
 
 c3 <- ggplot(four_long, aes(x=TestInSeq, y=i_bacc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2)
 
 c4 <- ggplot(four_long, aes(x=TestInSeq, y=a_bacc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2)
 
 grid.arrange(c1,c2,c3,c4)
@@ -1481,10 +1481,10 @@ ggsave("./Output/SequencingLinesColored.svg", coloredgraphs, height = 20, width 
 
 ```{r}
 allrisk_undersixty <- allriskonly %>% 
-  filter(age < 60)
+  dplyr::filter(age < 60)
 
 allrisk_oversixty <- allriskonly %>% 
-  filter(age >= 60)
+  dplyr::filter(age >= 60)
 
 nrow(allriskonly)
 nrow(allrisk_undersixty)
@@ -1523,7 +1523,7 @@ for(col in 2:ncol(allrisk_undersixty)) {
 
 #Results for missing one test results stacked bar chart
 callsFromLimitedInfo %>% 
-  filter(str_detect(tests,"eln_risk|^......$"))
+  dplyr::filter(str_detect(tests,"eln_risk|^......$"))
 
 #Determine accuracy or balanced accuracy for each test combination
 #Also calculate accuracy for identifying samples relative to a single category
@@ -1601,25 +1601,25 @@ for(i in sequence){
   
   #extract accuracy from matching record
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$totalACC
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$totalACC
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$totalACC
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$totalACC
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$totalACC
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$totalACC
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$totalACC
 }
 
@@ -1666,25 +1666,25 @@ for(i in sequence){
   t_seven <- string_sort(substr(i,1,7))
   
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$f_bacc
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$f_bacc
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$f_bacc
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$f_bacc
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$f_bacc
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$f_bacc
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$f_bacc
 }
 
@@ -1727,25 +1727,25 @@ for(i in sequence){
   t_seven <- string_sort(substr(i,1,7))
   
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$i_bacc
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$i_bacc
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$i_bacc
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$i_bacc
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$i_bacc
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$i_bacc
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$i_bacc
 }
 
@@ -1788,25 +1788,25 @@ for(i in sequence){
   t_seven <- string_sort(substr(i,1,7))
   
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$a_bacc
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$a_bacc
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$a_bacc
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$a_bacc
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$a_bacc
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$a_bacc
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$a_bacc
 }
 
@@ -1835,46 +1835,46 @@ write_csv(four_long_undersixty, "./Output/AllSequencesLong_undersixty.csv")
 
 c1 <- ggplot(four_long_undersixty, aes(x=TestInSeq, y=TotalAcc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2) 
 
 c2 <- ggplot(four_long_undersixty, aes(x=TestInSeq, y=f_bacc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2)
 
 c3 <- ggplot(four_long_undersixty, aes(x=TestInSeq, y=i_bacc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2)
 
 c4 <- ggplot(four_long_undersixty, aes(x=TestInSeq, y=a_bacc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long_undersixty, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long_undersixty, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2)
 
 grid.arrange(c1,c2,c3,c4)
@@ -1920,7 +1920,7 @@ for(col in 2:ncol(allrisk_oversixty)) {
 
 #Results for missing one test results stacked bar chart
 callsFromLimitedInfo %>% 
-  filter(str_detect(tests,"eln_risk|^......$"))
+  dplyr::filter(str_detect(tests,"eln_risk|^......$"))
 
 #Determine accuracy or balanced accuracy for each test combination
 #Also calculate accuracy for identifying samples relative to a single category
@@ -1998,25 +1998,25 @@ for(i in sequence){
   
   #extract accuracy from matching record
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$totalACC
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$totalACC
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$totalACC
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$totalACC
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$totalACC
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$totalACC
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$totalACC
 }
 
@@ -2063,25 +2063,25 @@ for(i in sequence){
   t_seven <- string_sort(substr(i,1,7))
   
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$f_bacc
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$f_bacc
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$f_bacc
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$f_bacc
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$f_bacc
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$f_bacc
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$f_bacc
 }
 
@@ -2124,25 +2124,25 @@ for(i in sequence){
   t_seven <- string_sort(substr(i,1,7))
   
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$i_bacc
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$i_bacc
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$i_bacc
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$i_bacc
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$i_bacc
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$i_bacc
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$i_bacc
 }
 
@@ -2185,25 +2185,25 @@ for(i in sequence){
   t_seven <- string_sort(substr(i,1,7))
   
   p1[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_one) %>% 
+    dplyr::filter(alphatests == t_one) %>% 
     .$a_bacc
   p2[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_two) %>% 
+    dplyr::filter(alphatests == t_two) %>% 
     .$a_bacc
   p3[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_three) %>% 
+    dplyr::filter(alphatests == t_three) %>% 
     .$a_bacc
   p4[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_four) %>% 
+    dplyr::filter(alphatests == t_four) %>% 
     .$a_bacc
   p5[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_five) %>% 
+    dplyr::filter(alphatests == t_five) %>% 
     .$a_bacc
   p6[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_six) %>% 
+    dplyr::filter(alphatests == t_six) %>% 
     .$a_bacc
   p7[loopcount] <- alpha.acc %>%
-    filter(alphatests == t_seven) %>% 
+    dplyr::filter(alphatests == t_seven) %>% 
     .$a_bacc
 }
 
@@ -2233,46 +2233,46 @@ write_csv(four_long_oversixty, "./Output/AllSequencesLong_oversixty.csv")
 
 c1 <- ggplot(four_long_oversixty, aes(x=TestInSeq, y=TotalAcc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2) 
 
 c2 <- ggplot(four_long_oversixty, aes(x=TestInSeq, y=f_bacc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2)
 
 c3 <- ggplot(four_long_oversixty, aes(x=TestInSeq, y=i_bacc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2)
 
 c4 <- ggplot(four_long_oversixty, aes(x=TestInSeq, y=a_bacc, group=ordered_tests)) +
   geom_line(size = 1, color = "grey85") +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "krapfnc"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "krapfnc"),
             color = "#ef4036", size = 1.5) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "kfnrcap"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "kfnrcap"),
             color = "#fbaf3f", size = 1.4) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "krfncap"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "krfncap"),
             color = "#E29D39", size = 1.3) +
-  geom_line(data = filter(four_long_oversixty, ordered_tests == "knfcpra"),
+  geom_line(data = dplyr::filter(four_long_oversixty, ordered_tests == "knfcpra"),
             color = "#2bb673", size = 1.2)
 
 grid.arrange(c1,c2,c3,c4)
@@ -2293,7 +2293,7 @@ find_missingone_acc <- function(datawide) {
   acc_vect <- vector()
   for(test in c("k","n","f","c","p","r","a")){
     acc <- datawide %>% 
-      filter(str_detect(ordered_tests, paste0(test,"$"))) %>% 
+      dplyr::filter(str_detect(ordered_tests, paste0(test,"$"))) %>% 
       .[1,7] %>% 
       round(2)
     acc_vect <- append(acc_vect, acc)

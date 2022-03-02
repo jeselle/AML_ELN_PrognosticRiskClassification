@@ -16,13 +16,13 @@ rawDiagnosis <- read.csv("../BeatAML_reports/diagnosis_dump_20170306.csv")
 Filter down to only Initial Acute Leukemia Diagnoses AND BeatAML Datalock
 
 ```{r}
-initialDiagnosisSample <- rawSpecimenGroup %>% filter(Specimen.Groups..Specimen.Group == "Initial Acute Leukemia Diagnosis")
+initialDiagnosisSample <- rawSpecimenGroup %>% dplyr::filter(Specimen.Groups..Specimen.Group == "Initial Acute Leukemia Diagnosis")
 datalock1AML <- rawSpecimenGroup %>% 
-  filter(Specimen.Groups..Specimen.Group == "DataLock1_TumorSample_NoMatchingNormal" |
+  dplyr::filter(Specimen.Groups..Specimen.Group == "DataLock1_TumorSample_NoMatchingNormal" |
            Specimen.Groups..Specimen.Group == "DataLock1_TumorSample_WithMatchingNormal")
 
 dl1AMLlist <- initialDiagnosisSample[initialDiagnosisSample$Specimen..Lab.ID %in% datalock1AML$Specimen..Lab.ID,]
-dl1AMLlist <- dl1AMLlist %>% filter(Specimen..Lab.ID != "15-00821") # Removes a bad sample, listed as both initial diagnosis and post-chemo, conflicting karyotypes
+dl1AMLlist <- dl1AMLlist %>% dplyr::filter(Specimen..Lab.ID != "15-00821") # Removes a bad sample, listed as both initial diagnosis and post-chemo, conflicting karyotypes
 #nrow(dl1AMLlist)
 ```
 
@@ -36,7 +36,7 @@ Extract Relevant measures
 ## Karyotype
 
 selected_k <- selectedLabs %>%
-  filter(Labs..Lab.Type == "Karyotype") %>% 
+  dplyr::filter(Labs..Lab.Type == "Karyotype") %>% 
   select(Specimen..Lab.ID, Labs..Result) %>% 
   rename(CYTOGENETICS = Labs..Result)
   
@@ -46,7 +46,7 @@ dl1AMLlist_k <- left_join(dl1AMLlist, selected_k, by = "Specimen..Lab.ID")
 
 ## FLT3-ITD
 flt.results <- selectedLabs %>% 
-  filter(str_detect(Labs..Lab.Type, "FLT3-ITD")) %>% 
+  dplyr::filter(str_detect(Labs..Lab.Type, "FLT3-ITD")) %>% 
   select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
   arrange(Specimen..Lab.ID)
 
@@ -75,7 +75,7 @@ dl1AMLlist_kf <- left_join(dl1AMLlist_k, flt.clean, by = "Specimen..Lab.ID")
 ## NPM1
 
 npm.results <- selectedLabs %>% 
-  filter(str_detect(Labs..Lab.Type, "NPM")) %>% 
+  dplyr::filter(str_detect(Labs..Lab.Type, "NPM")) %>% 
   select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
   arrange(Specimen..Lab.ID)
 
@@ -102,7 +102,7 @@ dl1AMLlist_kfn <- left_join(dl1AMLlist_kf, npm.clean, by = "Specimen..Lab.ID")
 ## CEBPA
 
 cebpa.results <- selectedLabs %>% 
-  filter(str_detect(Labs..Lab.Type, "CEBPA")) %>% 
+  dplyr::filter(str_detect(Labs..Lab.Type, "CEBPA")) %>% 
   select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
   arrange(Specimen..Lab.ID)
 
@@ -128,7 +128,7 @@ dl1AMLlist_kfnc <- left_join(dl1AMLlist_kfn, cebpa.clean, by = "Specimen..Lab.ID
 ## TP53
 
 TP53.results <- selectedLabs %>% 
-  filter(str_detect(Labs..Lab.Type, "TP53")) %>%
+  dplyr::filter(str_detect(Labs..Lab.Type, "TP53")) %>%
   select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
   arrange(Specimen..Lab.ID)
 
@@ -152,7 +152,7 @@ TP53.clean <- TP53.wide %>%
 ## RUNX1
 
 RUNX1.results <- selectedLabs %>% 
-  filter(str_detect(Labs..Lab.Type, "RUNX1")) %>% 
+  dplyr::filter(str_detect(Labs..Lab.Type, "RUNX1")) %>% 
   select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
   arrange(Specimen..Lab.ID)
 
@@ -176,7 +176,7 @@ RUNX1.clean <- RUNX1.wide %>%
 ## ASXL1
 
 ASXL1.results <- selectedLabs %>% 
-  filter(str_detect(Labs..Lab.Type, "ASXL1")) %>% 
+  dplyr::filter(str_detect(Labs..Lab.Type, "ASXL1")) %>% 
   select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type) %>% 
   arrange(Specimen..Lab.ID)
 
@@ -208,7 +208,7 @@ Find Genetrails = negative fields, this means genetrails was run and no mutation
 #Way too many GT = positive values... going to have to make sure they are properly scored
 #Negative values first
 genetrails <- selectedLabs %>% 
-  filter(Labs..Lab.Type == "GeneTrails") %>% 
+  dplyr::filter(Labs..Lab.Type == "GeneTrails") %>% 
   select(Specimen..Lab.ID, Labs..Result, Labs..Lab.Type, Labs..Comment) %>% 
   arrange(Specimen..Lab.ID)
 
@@ -265,8 +265,8 @@ compiled_data_neg <- compiled_data %>%
 
 
 compiled_data_neg %>%
-  filter(!is.na(GENETRAILS_PANEL_GENERAL)) %>% 
-  filter(is.na(FLT3_ITD) | is.na(NPM1_MUTATED) | is.na(CEBPA_MUTATED) |
+  dplyr::filter(!is.na(GENETRAILS_PANEL_GENERAL)) %>% 
+  dplyr::filter(is.na(FLT3_ITD) | is.na(NPM1_MUTATED) | is.na(CEBPA_MUTATED) |
            is.na(TP53) | is.na(RUNX1) | is.na(ASXL1)) %>% 
   select(Specimen..Lab.ID,FLT3_ITD, NPM1_MUTATED, CEBPA_MUTATED,
          TP53, RUNX1, ASXL1, GENETRAILS_PANEL_GENERAL, Labs..Comment) -> discrepencies
@@ -276,7 +276,7 @@ nrow(discrepencies)
 all_data <- compiled_data_neg
 
 complete_records <- all_data %>% 
-  filter(!is.na(CYTOGENETICS) &
+  dplyr::filter(!is.na(CYTOGENETICS) &
                       !is.na(FLT3_ITD) &
                       !is.na(NPM1_MUTATED) &
                       !is.na(CEBPA_MUTATED) &
